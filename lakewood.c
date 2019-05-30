@@ -1,4 +1,9 @@
-
+/*   CS 347 -- Thread Simulation
+*
+*   May 24, 2019, Michael Albert
+*   Modified May 30, 2019
+*
+*/
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -18,7 +23,8 @@ pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 struct queue groups;
 
-/* Queue implementation by Phil Nelson */
+/* Queue implementation by Phil Nelson
+   (peek and print by Michael Albert) */
 struct node {
   int data;
   struct node *next;
