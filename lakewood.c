@@ -11,12 +11,17 @@
 #define N 5
 #endif
 
-long global_data = 0;
-long global_jackets = 10;
+
+
+int global_jackets = 10;
+struct queue deadthreads;
+char* global_craft[] = {"kayak", "canoe", "sailboat"};
+int craft_jackets[] = {1, 2, 4};
+
+//monitor
+pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 struct queue groups;
-const char* global_craft[] = {"kayak", "canoe", "sailboat"};
-const long craft_jackets[] = {1, 2, 3};
-pthread_mutex_t mutex1;
 
 /* Queue implementation by Phil Nelson */
 struct node {
@@ -25,11 +30,13 @@ struct node {
 };
 
 struct queue {
+  int size;
   struct node *head;
   struct node *tail;
 };
 
 void queue_init (struct queue *queue) {
+  queue->size = 0;
   queue->head = NULL;
   queue->tail = NULL;
 }
@@ -38,23 +45,14 @@ bool queue_isEmpty (struct queue *queue) {
   return queue->head == NULL;
 }
 
-/*int queue_size (struct queue *queue) {
-  int size = 0;
-  struct node pos = queue.head;
-  while (pos.next != NULL) {
-    size++;
-    pos = pos.next;
-  }
-  return size;
-}*/
-
-void queue_insert (struct queue* queue, int value) {
+void queue_insert (struct queue* queue, long value) {
   struct node *tmp = malloc(sizeof(struct node));
   if (tmp == NULL) {
     fputs ("malloc failed\n", stderr);
     exit(1);
   }
 
+  queue->size += 1;
   /* create the node */
   tmp->data = value;
   tmp->next = NULL;
@@ -72,6 +70,7 @@ int queue_remove ( struct queue *queue ) {
   struct node *tmp;
 
   if (!queue_isEmpty(queue)) {
+    queue->size -= 1;
     tmp = queue->head;
     retval = tmp->data;
     queue->head = tmp->next;
@@ -81,6 +80,7 @@ int queue_remove ( struct queue *queue ) {
 }
 /* End of queue implementation */
 
+
 void printids (char *name) {
   pid_t      pid = getpid();
   pthread_t  tid = pthread_self();
@@ -88,48 +88,90 @@ void printids (char *name) {
   printf ("%s: pid %u tid %lu\n", name, (unsigned) pid, (unsigned long)tid);
 }
 
-void fatal (long n) {
-  printf ("Fatal error, lock or unlock error, thread %ld.\n", n);
+void fatal (int n) {
+  printf ("Fatal error, lock or unlock error, thread %d.\n", n);
   exit(n);
+}
+
+void putjackets (int request, long threadn) {
+  /* Add jackets back and signal */
+  if (pthread_mutex_lock(&mutex1)) { fatal(threadn); }
+  global_jackets += request;
+  pthread_cond_broadcast(&cond1);
+  /* Unlock mutex */
+  if (pthread_mutex_unlock(&mutex1)) { fatal(threadn); }
+  return;
+}
+
+int getjackets (int request, long threadn) {
+  /* Lock mutex */
+  if (pthread_mutex_lock(&mutex1)) { fatal(threadn); }
+  /* Add to waiting queue */
+  if ((global_jackets < request && groups.size < 5) || groups.size > 0) {
+    /* Return if queue too large */
+    if (groups.size >= 5) {
+      /* Unlock mutex */
+      if (pthread_mutex_unlock(&mutex1)) { fatal(threadn); }
+      return -1;
+    }
+    queue_insert(&groups, threadn);
+    printf("Group %ld waiting for %d lifevests.\n", threadn, request);
+    printf("Size of queue is currently %d.\n", groups.size);
+    /* Wait in queue order until jackets available */
+    while (global_jackets < request || groups.head->data < threadn) {
+      pthread_cond_wait(&cond1, &mutex1);
+    }
+  }
+  global_jackets -= request;
+  queue_remove(&groups);
+  /* Unlock mutex */
+  if (pthread_mutex_unlock(&mutex1)) { fatal(threadn); }
+  return 0;
 }
 
 void * thread_body ( void *arg ) {
   long threadn = (long) arg;
-  long craft = random() % 3;
-  long ix;
+  int craftnum = random() % 3;
+  char *craft = global_craft[craftnum];
+  long jackets = craft_jackets[craftnum];
 
-  /* Print group info */
-  printf("Group num is %ld, craft is %s, number of jackets is %ld\n"
-         , threadn, global_craft[craft], craft_jackets[craft]);
-  /* Check if jackets available */
-  if (global_jackets < craft_jackets[craft]) {
-    /* Queue is not full, join and wait */
-    if (10 < 5) {
-
-    }
-    /* Queue is full, exit */
-    else {
-      printf("Group num %ld will not wait.\n", threadn);
-      pthread_exit((void *) 0);
-    }
+  /* Request jackets */
+  if (getjackets(jackets, threadn)) {
+    printf("Group %ld got tired of waiting and left.\n", threadn);
   }
-  if (pthread_mutex_lock(&mutex1)) { fatal(threadn); }
-  global_jackets -= craft_jackets[craft];
-  if (pthread_mutex_unlock(&mutex1)) { fatal(threadn); }
-  pthread_exit((void *)craft_jackets[craft]);
+  else {
+    /* Print group info */
+    printf("Group %ld requesting a %s with %ld lifevests.\n"
+           , threadn, craft, jackets);
+    /* Use craft */
+    printf("Group %ld issued %ld lifevests, %d remaining.\n", threadn, jackets, global_jackets);
+    sleep(random() % 7);
+    /* Return jackets */
+    putjackets(jackets, threadn);
+    printf("Group %ld returning %ld lifevests, now have %d.\n", threadn, jackets, global_jackets);
+  }
+  /* Add thread to deadthreads */
+  queue_insert(&deadthreads, threadn);
+  pthread_exit((void *) jackets);
 }
-
 
 int main (int mainargc, char **mainargv) {
   pthread_t ids[atoi(mainargv[1])];
   int err;
   long i;
   void *retval;
-  long grouprate = 10;
+  int grouprate = 10;
+  queue_init(&deadthreads);
   queue_init(&groups);
 
-  srandom(0);
-  pthread_mutex_init(&mutex1, NULL);
+  if (mainargc == 3) {
+    grouprate = atoi(mainargv[2]);
+    srandom(0);
+  }
+  else if (mainargc == 4) {
+    grouprate = atoi(mainargv[2]);
+    srandom(atoi(mainargv[3]));
+  }
 
   for (i = 0; i < atoi(mainargv[1]); i++) {
     sleep(random() % grouprate);
@@ -138,13 +180,14 @@ int main (int mainargc, char **mainargv) {
       fprintf (stderr, "Can't create thread %ld\n", i);
       exit (1);
     }
-    //if (!pthread_tryjoin_np(ids[i], &retval)) {
-      global_jackets += (long) retval;
-    //}
-
+    /* Join exited threads */
+    while (!queue_isEmpty(&deadthreads)) {
+      pthread_join(ids[queue_remove(&deadthreads)], &retval);
+    }
   }
 
-  for (i=0; i < atoi(mainargv[1]); i++) {
+  /* Join any possible remaining threads */
+  for (i=0; i < 5; i++) {
     pthread_join(ids[i], &retval);
   }
 
