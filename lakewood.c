@@ -195,14 +195,14 @@ int main (int mainargc, char **mainargv) {
   int remainthreads = atoi(mainargv[1]);
   queue_init(&deadthreads);
   queue_init(&groups);
+  srandom(0);
 
   if (mainargc == 3) {
     grouprate = round(atoi(mainargv[2])/2.0);
-    srandom(0);
   }
   else if (mainargc == 4) {
     grouprate = round(atoi(mainargv[2])/2.0);
-    srandom(atoi(mainargv[3]));
+    srandom(time(NULL));
   }
 
   for (i = 0; i < atoi(mainargv[1]); i++) {
