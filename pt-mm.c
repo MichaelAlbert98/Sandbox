@@ -10,14 +10,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 #include <time.h>
+#include <sys/time.h>
 
 /* idx macro calculates the correct 2-d based 1-d index
  * of a location (x,y) in an array that has col columns.
- * This is calculated in row major order. 
+ * This is calculated in row major order.
  */
 
 #define idx(x,y,col)  ((x)*(col) + (y))
+
+/* Struct for storing thread info */
+struct info {
+  double *A, *B, *C;
+  int x, y, z, threads, threadn;
+};
 
 /* Matrix Multiply:
  *  C (x by z)  =  A ( x by y ) times B (y by z)
@@ -25,47 +33,101 @@
  *  A and B are not be modified
  */
 
-void MatMul (double *A, double *B, double *C, int x, int y, int z)
-{
-  int ix, jx, kx;
+ /* Thread body for mat_mul */
+ void * mul_body (void *arg) {
+   /* Extract info */
+   int x = ((struct info*) arg)->x;
+   int y = ((struct info*) arg)->y;
+   int z = ((struct info*) arg)->z;
+   int threads = ((struct info*) arg)->threads;
+   int threadn = ((struct info*) arg)->threadn;
 
-  for (ix = 0; ix < x; ix++) {
-    // Rows of solution
-    for (jx = 0; jx < z; jx++) {
-      // Columns of solution
-      float tval = 0;
-      for (kx = 0; kx < y; kx++) {
-	// Sum the A row time B column
-	tval += A[idx(ix,kx,y)] * B[idx(kx,jx,z)];
-      }
-      C[idx(ix,jx,z)] = tval;
+   /* Determine what elements to calculate */
+   int elements = x*y;
+   int perthread = elements/threads;
+   int remainder = elements%threads;
+   if (perthread == 0) {
+     perthread = 1;
+     remainder = 0;
+   }
+   int start, finish, ixstart, ixfinish;
+   int jxstart[y];
+   int jxfinish[y];
+   if (threadn < remainder) {
+     start = (threadn * perthread) + threadn;
+     finish = start + perthread;
+   }
+   else if (threadn < elements) {
+     start = (threadn * perthread) + remainder;
+     finish = start + perthread - 1;
+   }
+   else {
+     pthread_exit((void *) NULL);
+   }
+   ixstart = start/x;
+   ixfinish = finish/x + 1;
+   for (int i = ixstart; i < ixfinish; i++) {
+     jxstart[i] = 0;
+     jxfinish[i] = 0;
+   }
+   jxstart[ixstart] = start%y;
+   jxfinish[ixfinish] = finish%y + 1;
+   for (int i = ixstart; i < ixfinish; i++) {
+     jxfinish[i] = y;
+   }
+
+   /* Calculate the elements */
+   int ix, jx, kx;
+   for (ix = ixstart; ix < ixfinish; ix++) {
+     // Rows of solution
+     for (jx = jxstart[ix]; jx < jxfinish[ix]; jx++) {
+       // Columns of solution
+       float tval = 0;
+       for (kx = 0; kx < y; kx++) {
+         // Sum the A row time B column
+         tval += ((struct info*) arg)->A[idx(ix,kx,y)] * ((struct info*) arg)->B[idx(kx,jx,z)];
+       }
+       ((struct info*) arg)->C[idx(ix,jx,z)] = tval;
+     }
+   }
+   pthread_exit((void *) NULL);
+ }
+
+void MatMul (double *A, double *B, double *C, int x, int y, int z, int threads) {
+  pthread_t ids[threads];
+  struct info threadinfo[threads];
+  /* Create threads */
+  for (int i = 0; i < threads; i++) {
+    /* Declare and set info */
+    threadinfo[i].A = A;
+    threadinfo[i].B = B;
+    threadinfo[i].C = C;
+    threadinfo[i].x = x;
+    threadinfo[i].y = y;
+    threadinfo[i].z = z;
+    threadinfo[i].threads = threads;
+    threadinfo[i].threadn = i;
+    int err = pthread_create (&ids[i], NULL, mul_body, (void *)&threadinfo[i]);
+    if (err) {
+      fprintf (stderr, "Can't create thread %d\n", i);
+      exit (1);
     }
   }
+  // wait for all threads by joining them
+  for (int i = 0; i < threads; i++) {
+    pthread_join(ids[i], NULL);
+  }
+  return;
 }
 
-/* Matrix Square: 
+/* Matrix Square:
  *  B = A ^ 2*times
  *
  *    A are not be modified.
  */
 
-void MatSquare (double *A, double *B, int x, int times)
-{
-  int i;
-
-  MatMul (A, A, B, x, x, x);
-  if (times > 1) {
-    /* Need a Temporary for the computation */
-    double *T = (double *)malloc(sizeof(double)*x*x);
-    for (i = 1; i < times; i+= 2) {
-      MatMul (B, B, T, x, x, x);
-      if (i == times - 1)
-	memcpy(B, T, sizeof(double)*x*x);
-      else
-	MatMul (T, T, B, x, x, x);
-    }
-    free(T);
-  }
+void MatSquare (double *A, double *B, int x, int times, int threads) {
+  return;
 }
 
 /* Print a matrix: */
@@ -93,28 +155,30 @@ void MatGen (double *A, int x, int y, int rand)
 			  ((double)(random() % 200000000))/2000000000.0 :
 			  (1.0 + (((double)ix)/100.0) + (((double)iy/1000.0))));
     }
-  }	
+  }
 }
-  
+
 /* Print a help message on how to run the program */
 
 void usage(char *prog)
 {
-  fprintf (stderr, "%s: [-dr] -x val -y val -z val\n", prog);
-  fprintf (stderr, "%s: [-dr] -s num -x val\n", prog);
+  fprintf (stderr, "%s: [-Tdr] -n val -x val -y val -z val\n", prog);
+  fprintf (stderr, "%s: [-Tdr] -n val -s num -x val\n", prog);
   exit(1);
 }
 
 
 /* Main function
  *
- *  args:  -d   -- debug and print results
- *         -r   -- use random data between 0 and 1 
- *         -s t -- square the matrix t times 
+ *  args:  -T   -- record the program computation time
+ *         -d   -- debug and print results
+ *         -r   -- use random data between 0 and 1
+ *         -N   -- number of threads to create
+ *         -s t -- square the matrix t times
  *         -x   -- rows of the first matrix, r & c for squaring
  *         -y   -- cols of A, rows of B
  *         -z   -- cols of B
- *         
+ *
  */
 
 int main (int argc, char ** argv)
@@ -124,23 +188,31 @@ int main (int argc, char ** argv)
 
   /* option data */
   int x = 0, y = 0, z = 0;
+  int threads;
+  int timer = 0;
   int debug = 0;
   int square = 0;
   int useRand = 0;
   int sTimes = 0;
-  
-  while ((ch = getopt(argc, argv, "drs:x:y:z:")) != -1) {
+
+  while ((ch = getopt(argc, argv, "Tdrs:n:x:y:z:")) != -1) {
     switch (ch) {
+    case 'T':  /* timing */
+      timer = 1;
+      break;
     case 'd':  /* debug */
       debug = 1;
       break;
     case 'r':  /* debug */
       useRand = 1;
       srandom(time(NULL));
-      break;      
+      break;
     case 's':  /* s times */
       sTimes = atoi(optarg);
       square = 1;
+      break;
+    case 'n':  /* s times */
+      threads = atoi(optarg);
       break;
     case 'x':  /* x size */
       x = atoi(optarg);
@@ -163,10 +235,15 @@ int main (int argc, char ** argv)
       fprintf (stderr, "Inconsistent options\n");
       usage(argv[0]);
     }
-  } else if (x <= 0 || y <= 0 || z <= 0) {
-    fprintf (stderr, "-x, -y, and -z all need to be specified or -s and -x.\n");
+  } else if (x <= 0 || y <= 0 || z <= 0 || threads <= 0) {
+    fprintf (stderr, "-n, -x, -y, and -z all need to be specified or -s, -n, and -x.\n");
     usage(argv[0]);
-  } 
+  }
+
+  /* timers */
+  clock_t start_t, end_t, cpu_t;
+  time_t start_tvt, end_tvt, wall_t;
+  struct timeval start_tv, end_tv;
 
   /* Matrix storage */
   double *A;
@@ -177,7 +254,21 @@ int main (int argc, char ** argv)
     A = (double *) malloc (sizeof(double) * x * x);
     B = (double *) malloc (sizeof(double) * x * x);
     MatGen(A,x,x,useRand);
-    MatSquare(A, B, x, sTimes);
+    /* Calculate run time */
+    if (timer) {
+      gettimeofday(&start_tv, NULL);
+      start_t = clock();
+      MatSquare(A, B, x, sTimes, threads);
+      end_t = clock();
+      gettimeofday(&end_tv, NULL);
+      cpu_t = end_t - start_t;
+      wall_t = end_tv.tv_sec - start_tv.tv_sec;
+      printf("Clock time is %ld, CPU time is %ld\n", wall_t, cpu_t);
+    }
+    /* Run normally */
+    else {
+      MatSquare(A, B, x, sTimes, threads);
+    }
     if (debug) {
       printf ("-------------- orignal matrix ------------------\n");
       MatPrint(A,x,x);
@@ -190,7 +281,21 @@ int main (int argc, char ** argv)
     C = (double *) malloc (sizeof(double) * x * z);
     MatGen(A,x,y,useRand);
     MatGen(B,y,z,useRand);
-    MatMul(A, B, C, x, y, z);
+    /* Calculate run time */
+    if (timer) {
+      gettimeofday(&start_tv, NULL);
+      start_t = clock();
+      MatMul(A, B, C, x, y, z, threads);
+      end_t = clock();
+      gettimeofday(&end_tv, NULL);
+      cpu_t = end_t - start_t;
+      wall_t = end_tv.tv_sec - start_tv.tv_sec;
+      printf("Clock time is %ld, CPU time is %ld\n", wall_t, cpu_t);
+    }
+    /* Run normally */
+    else {
+      MatMul(A, B, C, x, y, z, threads);
+    }
     if (debug) {
       printf ("-------------- orignal A matrix ------------------\n");
       MatPrint(A,x,y);
