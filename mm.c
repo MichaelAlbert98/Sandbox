@@ -11,10 +11,11 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <sys/time.h>
 
 /* idx macro calculates the correct 2-d based 1-d index
  * of a location (x,y) in an array that has col columns.
- * This is calculated in row major order. 
+ * This is calculated in row major order.
  */
 
 #define idx(x,y,col)  ((x)*(col) + (y))
@@ -43,7 +44,7 @@ void MatMul (double *A, double *B, double *C, int x, int y, int z)
   }
 }
 
-/* Matrix Square: 
+/* Matrix Square:
  *  B = A ^ 2*times
  *
  *    A are not be modified.
@@ -93,28 +94,29 @@ void MatGen (double *A, int x, int y, int rand)
 			  ((double)(random() % 200000000))/2000000000.0 :
 			  (1.0 + (((double)ix)/100.0) + (((double)iy/1000.0))));
     }
-  }	
+  }
 }
-  
+
 /* Print a help message on how to run the program */
 
 void usage(char *prog)
 {
-  fprintf (stderr, "%s: [-dr] -x val -y val -z val\n", prog);
-  fprintf (stderr, "%s: [-dr] -s num -x val\n", prog);
+  fprintf (stderr, "%s: [-Tdr] -x val -y val -z val\n", prog);
+  fprintf (stderr, "%s: [-Tdr] -s num -x val\n", prog);
   exit(1);
 }
 
 
 /* Main function
  *
- *  args:  -d   -- debug and print results
- *         -r   -- use random data between 0 and 1 
- *         -s t -- square the matrix t times 
+ *  args:  -T   -- record the program computation time
+ *         -d   -- debug and print results
+ *         -r   -- use random data between 0 and 1
+ *         -s t -- square the matrix t times
  *         -x   -- rows of the first matrix, r & c for squaring
  *         -y   -- cols of A, rows of B
  *         -z   -- cols of B
- *         
+ *
  */
 
 int main (int argc, char ** argv)
@@ -124,20 +126,24 @@ int main (int argc, char ** argv)
 
   /* option data */
   int x = 0, y = 0, z = 0;
+  int timer = 0;
   int debug = 0;
   int square = 0;
   int useRand = 0;
   int sTimes = 0;
-  
-  while ((ch = getopt(argc, argv, "drs:x:y:z:")) != -1) {
+
+  while ((ch = getopt(argc, argv, "Tdrs:x:y:z:")) != -1) {
     switch (ch) {
+    case 'T':  /* timing */
+      timer = 1;
+      break;
     case 'd':  /* debug */
       debug = 1;
       break;
     case 'r':  /* debug */
       useRand = 1;
       srandom(time(NULL));
-      break;      
+      break;
     case 's':  /* s times */
       sTimes = atoi(optarg);
       square = 1;
@@ -166,7 +172,12 @@ int main (int argc, char ** argv)
   } else if (x <= 0 || y <= 0 || z <= 0) {
     fprintf (stderr, "-x, -y, and -z all need to be specified or -s and -x.\n");
     usage(argv[0]);
-  } 
+  }
+
+  /* timers */
+  clock_t start_t, end_t, cpu_t;
+  time_t start_tvt, end_tvt, wall_t;
+  struct timeval start_tv, end_tv;
 
   /* Matrix storage */
   double *A;
@@ -177,7 +188,21 @@ int main (int argc, char ** argv)
     A = (double *) malloc (sizeof(double) * x * x);
     B = (double *) malloc (sizeof(double) * x * x);
     MatGen(A,x,x,useRand);
-    MatSquare(A, B, x, sTimes);
+    /* Calculate run time */
+    if (timer) {
+      gettimeofday(&start_tv, NULL);
+      start_t = clock();
+      MatSquare(A, B, x, sTimes);
+      end_t = clock();
+      gettimeofday(&end_tv, NULL);
+      cpu_t = end_t - start_t;
+      wall_t = end_tv.tv_sec - start_tv.tv_sec;
+      printf("Clock time is %ld, CPU time is %ld\n", wall_t, cpu_t);
+    }
+    /* Run normally */
+    else {
+      MatSquare(A, B, x, sTimes);
+    }
     if (debug) {
       printf ("-------------- orignal matrix ------------------\n");
       MatPrint(A,x,x);
@@ -190,7 +215,21 @@ int main (int argc, char ** argv)
     C = (double *) malloc (sizeof(double) * x * z);
     MatGen(A,x,y,useRand);
     MatGen(B,y,z,useRand);
-    MatMul(A, B, C, x, y, z);
+    /* Calculate run time */
+    if (timer) {
+      gettimeofday(&start_tv, NULL);
+      start_t = clock();
+      MatMul(A, B, C, x, y, z);
+      end_t = clock();
+      gettimeofday(&end_tv, NULL);
+      cpu_t = end_t - start_t;
+      wall_t = end_tv.tv_sec - start_tv.tv_sec;
+      printf("Clock time is %ld, CPU time is %ld\n", wall_t, cpu_t);
+    }
+    /* Run normally */
+    else {
+      MatMul(A, B, C, x, y, z);
+    }
     if (debug) {
       printf ("-------------- orignal A matrix ------------------\n");
       MatPrint(A,x,y);
