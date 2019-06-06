@@ -24,8 +24,61 @@
 /* Struct for storing thread info */
 struct info {
   double *A, *B, *C;
-  int x, y, z, threads, threadn;
+  int x, y, z, threads, threadn, times;
 };
+pthread_barrier_t barrier;
+
+  /* Calculation of subset of matrix elements */
+  void matrix_calc (double *A, double *B, double *C, int x, int y, int z, int threads,
+    int threadn) {
+    /* Determine what elements to calculate */
+    int elements = x*y;
+    int perthread = elements/threads;
+    int remainder = elements%threads;
+    if (perthread == 0) {
+      perthread = 1;
+      remainder = 0;
+    }
+    int start, finish, ixstart, ixfinish;
+    start = finish = ixstart = ixfinish = 0;
+    int jxstart[y];
+    int jxfinish[y];
+    if (threadn < remainder) {
+      start = (threadn * perthread) + threadn;
+      finish = start + perthread;
+    }
+    else if (threadn < elements) {
+      start = (threadn * perthread) + remainder;
+      finish = start + perthread - 1;
+    }
+    ixstart = start/x;
+    ixfinish = finish/x + 1;
+    for (int i = ixstart; i < ixfinish; i++) {
+      jxstart[i] = 0;
+      jxfinish[i] = 0;
+    }
+    jxstart[ixstart] = start%y;
+    jxfinish[ixfinish] = finish%y + 1;
+    for (int i = ixstart; i < ixfinish; i++) {
+      jxfinish[i] = y;
+    }
+
+    /* Calculate the elements */
+    int ix, jx, kx;
+    for (ix = ixstart; ix < ixfinish; ix++) {
+      // Rows of solution
+      for (jx = jxstart[ix]; jx < jxfinish[ix]; jx++) {
+        // Columns of solution
+        float tval = 0;
+        for (kx = 0; kx < y; kx++) {
+          // Sum the A row time B column
+          tval += A[idx(ix,kx,y)] * B[idx(kx,jx,z)];
+        }
+        C[idx(ix,jx,z)] = tval;
+      }
+    }
+    return;
+  }
 
 /* Matrix Multiply:
  *  C (x by z)  =  A ( x by y ) times B (y by z)
@@ -34,62 +87,18 @@ struct info {
  */
 
  /* Thread body for mat_mul */
- void * mul_body (void *arg) {
+ void* mul_body (void *arg) {
    /* Extract info */
-   int x = ((struct info*) arg)->x;
-   int y = ((struct info*) arg)->y;
-   int z = ((struct info*) arg)->z;
-   int threads = ((struct info*) arg)->threads;
-   int threadn = ((struct info*) arg)->threadn;
-
-   /* Determine what elements to calculate */
-   int elements = x*y;
-   int perthread = elements/threads;
-   int remainder = elements%threads;
-   if (perthread == 0) {
-     perthread = 1;
-     remainder = 0;
-   }
-   int start, finish, ixstart, ixfinish;
-   int jxstart[y];
-   int jxfinish[y];
-   if (threadn < remainder) {
-     start = (threadn * perthread) + threadn;
-     finish = start + perthread;
-   }
-   else if (threadn < elements) {
-     start = (threadn * perthread) + remainder;
-     finish = start + perthread - 1;
-   }
-   else {
-     pthread_exit((void *) NULL);
-   }
-   ixstart = start/x;
-   ixfinish = finish/x + 1;
-   for (int i = ixstart; i < ixfinish; i++) {
-     jxstart[i] = 0;
-     jxfinish[i] = 0;
-   }
-   jxstart[ixstart] = start%y;
-   jxfinish[ixfinish] = finish%y + 1;
-   for (int i = ixstart; i < ixfinish; i++) {
-     jxfinish[i] = y;
-   }
-
-   /* Calculate the elements */
-   int ix, jx, kx;
-   for (ix = ixstart; ix < ixfinish; ix++) {
-     // Rows of solution
-     for (jx = jxstart[ix]; jx < jxfinish[ix]; jx++) {
-       // Columns of solution
-       float tval = 0;
-       for (kx = 0; kx < y; kx++) {
-         // Sum the A row time B column
-         tval += ((struct info*) arg)->A[idx(ix,kx,y)] * ((struct info*) arg)->B[idx(kx,jx,z)];
-       }
-       ((struct info*) arg)->C[idx(ix,jx,z)] = tval;
-     }
-   }
+   struct info* argcp = (struct info*) arg;
+   double *A = argcp->A;
+   double *B = argcp->B;
+   double *C = argcp->C;
+   int x = argcp->x;
+   int y = argcp->y;
+   int z = argcp->z;
+   int threads = argcp->threads;
+   int threadn = argcp->threadn;
+   matrix_calc(A, B, C, x, y, z, threads, threadn);
    pthread_exit((void *) NULL);
  }
 
@@ -126,7 +135,66 @@ void MatMul (double *A, double *B, double *C, int x, int y, int z, int threads) 
  *    A are not be modified.
  */
 
+ /* Thread body for mat_mul */
+ void* square_body (void *arg) {
+   /* Extract info */
+   struct info* argcp = (struct info*) arg;
+   double *A = argcp->A;
+   double *B = argcp->B;
+   double *C = argcp->C;
+   int x = argcp->x;
+   int threads = argcp->threads;
+   int threadn = argcp->threadn;
+   int times = argcp->times;
+   matrix_calc(A, A, B, x, x, x, threads, threadn);
+
+
+   if (times > 1) {
+     for (int i = 1; i < times; i+= 2) {
+       pthread_barrier_wait(&barrier);
+       matrix_calc(B, B, C, x, x, x, threads, threadn);
+       pthread_barrier_wait(&barrier);
+       if (i == times - 1) {
+         memcpy(B, C, sizeof(double)*x*x);
+       }
+       else {
+         matrix_calc(C, C, B, x, x, x, threads, threadn);
+       }
+     }
+   }
+
+
+   pthread_exit((void *) NULL);
+ }
+
 void MatSquare (double *A, double *B, int x, int times, int threads) {
+  pthread_t ids[threads];
+  struct info threadinfo[threads];
+  double *C = (double *)malloc(sizeof(double) * x * x);
+  /* Init barrier */
+  pthread_barrier_init(&barrier, NULL, threads);
+  /* Create threads */
+  for (int i = 0; i < threads; i++) {
+    /* Declare and set info */
+    threadinfo[i].A = A;
+    threadinfo[i].B = B;
+    threadinfo[i].C = C;
+    threadinfo[i].x = x;
+    threadinfo[i].threads = threads;
+    threadinfo[i].threadn = i;
+    threadinfo[i].times = times;
+    int err = pthread_create (&ids[i], NULL, square_body, (void *)&threadinfo[i]);
+    if (err) {
+      fprintf (stderr, "Can't create thread %d\n", i);
+      exit (1);
+    }
+  }
+  /* Wait for all threads by joining them */
+  for (int i = 0; i < threads; i++) {
+    pthread_join(ids[i], NULL);
+  }
+  free(C);
+  pthread_barrier_destroy(&barrier); //Destroy barrier
   return;
 }
 
@@ -163,7 +231,7 @@ void MatGen (double *A, int x, int y, int rand)
 void usage(char *prog)
 {
   fprintf (stderr, "%s: [-Tdr] -n val -x val -y val -z val\n", prog);
-  fprintf (stderr, "%s: [-Tdr] -n val -s num -x val\n", prog);
+  fprintf (stderr, "%s: [-Tdr] -s num -n val -x val\n", prog);
   exit(1);
 }
 
@@ -242,7 +310,7 @@ int main (int argc, char ** argv)
 
   /* timers */
   clock_t start_t, end_t, cpu_t;
-  time_t start_tvt, end_tvt, wall_t;
+  time_t wall_t;
   struct timeval start_tv, end_tv;
 
   /* Matrix storage */
