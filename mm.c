@@ -2,6 +2,8 @@
  *
  * Phil Nelson, March 5, 2019
  *
+ * Modified by Michael Albert, June 6, 2019
+ *
  */
 
 #include <stdio.h>
@@ -119,8 +121,7 @@ void usage(char *prog)
  *
  */
 
-int main (int argc, char ** argv)
-{
+int main (int argc, char ** argv) {
   extern char *optarg;   /* defined by getopt(3) */
   int ch;                /* for use with getopt(3) */
 
@@ -175,8 +176,8 @@ int main (int argc, char ** argv)
   }
 
   /* timers */
-  clock_t start_t, end_t, cpu_t;
-  time_t start_tvt, end_tvt, wall_t;
+  clock_t start_time, end_time, cpu_time;
+  time_t wall_time;
   struct timeval start_tv, end_tv;
 
   /* Matrix storage */
@@ -191,13 +192,13 @@ int main (int argc, char ** argv)
     /* Calculate run time */
     if (timer) {
       gettimeofday(&start_tv, NULL);
-      start_t = clock();
+      start_time = clock();
       MatSquare(A, B, x, sTimes);
-      end_t = clock();
+      end_time = clock();
       gettimeofday(&end_tv, NULL);
-      cpu_t = end_t - start_t;
-      wall_t = end_tv.tv_sec - start_tv.tv_sec;
-      printf("Clock time is %ld, CPU time is %ld\n", wall_t, cpu_t);
+      cpu_time = end_time - start_time;
+      wall_time = end_tv.tv_sec - start_tv.tv_sec;
+      printf("Clock time is %ld, CPU time is %ld\n", wall_time, cpu_time);
     }
     /* Run normally */
     else {
@@ -218,13 +219,13 @@ int main (int argc, char ** argv)
     /* Calculate run time */
     if (timer) {
       gettimeofday(&start_tv, NULL);
-      start_t = clock();
+      start_time = clock();
       MatMul(A, B, C, x, y, z);
-      end_t = clock();
+      end_time = clock();
       gettimeofday(&end_tv, NULL);
-      cpu_t = end_t - start_t;
-      wall_t = end_tv.tv_sec - start_tv.tv_sec;
-      printf("Clock time is %ld, CPU time is %ld\n", wall_t, cpu_t);
+      cpu_time = end_time - start_time;
+      wall_time = end_tv.tv_sec - start_tv.tv_sec;
+      printf("Clock time is %ld, CPU time is %ld\n", wall_time, cpu_time);
     }
     /* Run normally */
     else {
