@@ -33,7 +33,7 @@ pthread_barrier_t barrier;
   void matrix_calc (double *A, double *B, double *C, int x, int y, int z, int threads,
     int threadn) {
     /* Determine what elements to calculate */
-    int elements = x*y;
+    int elements = x*z;
     int perthread = elements/threads;
     int remainder = elements%threads;
     if (perthread == 0) {
@@ -42,8 +42,8 @@ pthread_barrier_t barrier;
     }
     int start, finish, ixstart, ixfinish;
     start = finish = ixstart = ixfinish = 0;
-    int jxstart[y];
-    int jxfinish[y];
+    int jxstart[z];
+    int jxfinish[z];
     if (threadn < remainder) {
       start = (threadn * perthread) + threadn;
       finish = start + perthread;
@@ -52,16 +52,20 @@ pthread_barrier_t barrier;
       start = (threadn * perthread) + remainder;
       finish = start + perthread - 1;
     }
+    else {
+      return;
+    }
     ixstart = start/x;
     ixfinish = finish/x + 1;
-    for (int i = ixstart; i < ixfinish; i++) {
-      jxstart[i] = 0;
-      jxfinish[i] = 0;
-    }
-    jxstart[ixstart] = start%y;
-    jxfinish[ixfinish] = finish%y + 1;
-    for (int i = ixstart; i < ixfinish; i++) {
-      jxfinish[i] = y;
+    jxstart[ixstart] = start%z;
+    jxfinish[ixstart] = finish%z + 1;
+    if (ixstart +1 < ixfinish) {
+      jxfinish[ixstart] = z;
+      for (int i = ixstart + 1; i < ixfinish; i++) {
+        jxstart[i] = 0;
+        jxfinish[i] = z;
+      }
+      jxfinish[ixfinish-1] = finish%z + 1;
     }
 
     /* Calculate the elements */
