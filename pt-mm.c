@@ -55,8 +55,8 @@ pthread_barrier_t barrier;
     else {
       return;
     }
-    ixstart = start/x;
-    ixfinish = finish/x + 1;
+    ixstart = start/z;
+    ixfinish = finish/z + 1;
     jxstart[ixstart] = start%z;
     jxfinish[ixstart] = finish%z + 1;
     if (ixstart +1 < ixfinish) {
