@@ -261,7 +261,7 @@ int main (int argc, char ** argv)
 
   /* option data */
   int x = 0, y = 0, z = 0;
-  int threads;
+  int threads = 8;
   int timer = 0;
   int debug = 0;
   int square = 0;
