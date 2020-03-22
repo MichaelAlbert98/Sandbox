@@ -1,0 +1,23 @@
+1. This assignment asks us to create a client and server where a set of K letters
+is chosen by the server and sent to two clients. Each client takes turns inputting
+words that can be formed from the K letters given by the server. If an invalid
+word is input, the word is a repeat, or the client is unable to find a valid
+word within N seconds, then the round is over and the other client gets a point.
+The server then sends a new randomly chosen set of K letters. This continues
+until one client has accumulated 3 points. The programs are also required to be
+able to handle disconnects, concurrent clients, and follow the protocols
+specified in prog2.pdf.
+2. We anticipate the hardest part of this assignment to be keeping track of the
+two clients playing the game and making sure the information they both receive
+is correct and that no inconsistencies arise. Following the protocols in
+assignment 1 was difficult and the protocols in assignment 2 are even more
+complex/numerous. We think that a large portion of our time will be spent on
+simply double checking to make sure that correct data types and data values
+are being sent from the client to server and vice versa.
+3. The three resources we plan to draw from if we get stuck are:
+    1. Linux man pages
+    2. TCP/IP Protocol book
+    3. The professor
+4. We plan to use the implementation of a trie done by GeeksforGeeks.
+5. We will meet Tuesday from 2-3, Wednesday from 12-1 and 2-3,
+   Thursday from 11-5, and Friday from 12-2.

@@ -1,0 +1,24 @@
+1. Michael Albert and Jim Riley.
+2. As it stands we have noticed no major bugs or errors.
+3. We tested the board creation with multiple board lengths including 0 and 256
+to ensure randomness, that there would be at least one vowel in the board, and
+that the board had to be between 1 and 255. We tested the server by joining
+multiple player groups and making sure the games are matched to each other
+correctly. We tested the correctness of the entered words by entering nothing,
+valid words, and invalid words to make sure the server returned the correct
+results. We also played through several games of varying board/time lengths,
+trying to break it through disconnects, afking, inputting invalid characters,
+etc.
+4.The most challenging part of this assignment by far was figuring out how to
+detect if a player timed out or disconnected prematurely and communicating that
+to the client side. When a player timed out and the client peeked and saw a 0
+waiting in the buffer the client did not execute the sends sending the guess
+data. The server would make it player 2s turn and gave them a point because it
+would just behave as if player 1 had entered an incorrect guess. Player 2 would
+play their turn normally and the server would go back to player 1. Player 1
+could guess but they would still be looking at the board for the previous
+round, so when the server gets their response it would compare that answer to
+the new board. Of course it most likely would not exist there so the server
+will say its an invalid word. This problem was eventually fixed however there
+is still a turn of lag on player ones side where they are forced to enter a
+word based off an incorrect board.
