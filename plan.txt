@@ -1,0 +1,16 @@
+1. This assignment asks us to create a client and server where the
+client sends user input to the server and the server checks said
+input for validity. This is to be designed as a game of hangman in
+which the user has N guesses, where N is the length of the word.
+The server sends the board and the client displays it to terminal
+after each guess. Unique returns are to be implemented for a
+win/loss and concurrent clients must be supported.
+2. We anticipate the most challenging aspect of this assignment
+to be debugging the program as errors could result from interactions
+between the client and server and manifest in unexpected ways.
+3. The three resources we plan to draw from if we get stuck are:
+    1. Linux man pages
+    2. TCP/IP Protocol book
+    3. The professor
+4. We will meet Tuesday from 2-3 and 4-7 (if necessary), Wednesday from
+12-1 and 2-3, Thursday from 11-5, and Friday from 12-2.
