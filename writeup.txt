@@ -1,0 +1,25 @@
+1. Micheal Albert and James Riley
+2. Fixed the bug.
+3. We connected multiple clients to the server in order to test the programs
+ability to connect multiple participants and observers to their specified sockets.
+We sent messages from those participants to make sure the server was able to
+handle their data correctly and sent the messages to the appropriate recipients.
+After we were sure the server could read the messages we tested the error
+checking for input usernames by testing incorrect characters and names longer
+than 10. We also tested the observers ability to connect to participants and
+receive private messages by inputting valid and invalid usernames and messages.
+We tested the servers ability to handle disconnects from observers and
+participants by having their terminals close at various times, watching to ensure
+the server was able to accurately keep track of the active and inactive clients.
+To test timeouts we just waited until the specific times to make sure the server
+closed their sockets as well.
+4. The most difficult part of this assignment was getting select to distinguish
+which users had new information to send in and dealing with that data accordingly.
+For a long time select would return immediately even when we made no changes to
+on the client side. This problem took a long time to correct as we were both very
+unfamiliar with the way select works. We eventually found that the problem had
+something to do with where the information we read in was being read to. We also
+had a lot of problems caused by each entry in our list of participants being
+overwritten by subsequent new participants. Eventually we discovered this was
+due to the fact our list was stored as a global variable. Initializing the list
+inside main fixed that problem right up.

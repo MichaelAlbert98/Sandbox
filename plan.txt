@@ -1,0 +1,15 @@
+1. We will create a chat room in which up to 255 participants can communicate.
+Each participant sends messages to the server who relays it to everyone/a
+specified person. An observer attached to a participant displays messages
+to that participant. When joining, a participant has 60 seconds to pick a unique
+username; an observer needs to select an existing participant to observe within
+60 seconds. Participants can send public/private messages to others in the chat.
+2. We anticipate having the server respond to all messages/disconnects being sent
+to it immediately being the hardest part of this assignment. Making sure the server
+receives/sends the correct information from each client will likely be challenging,
+and hard to debug, due to the fact that there can be 255 participants and
+observers sending messages at one time.
+3. The three resources we plan to draw from if we get stuck are:
+    1. Linux man pages
+    2. TCP/IP Protocol book
+    3. The professor
