@@ -3,7 +3,6 @@
 * [Technologies](#technologies)
 * [Setup](#setup)
 * [Features](#features)
-* [To Do](#to-do)
 * [Sources](#sources)
 
 ## General Information
