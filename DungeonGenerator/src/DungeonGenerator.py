@@ -166,13 +166,15 @@ class DungeonGenerator:
                         self.cells[start_y + y][start_x + x] = FLOOR
                 self.rooms.append(Room(start_x, start_y, room_width, room_height))
 
-    def place_corridors(self, x=None, y=None):
+    def place_corridors(self, x=None, y=None, type='l'):
         """
         generates a maze through unoccupied tiles using a growing tree algorithm
 
         Args:
             x: integer, starting x coord. None picks random EMPTY cell
             y: integer, starting y coord. None picks random EMPTY cell
+            type: string, which cell to pick when selecting how to grow the maze
+                ('f' = first, 'l' = last, 'm' = middle, 'r' = random,)
 
         Returns:
             None
@@ -190,13 +192,16 @@ class DungeonGenerator:
         cells.append((x, y))
 
         while cells:
-            x, y = cells[-1] # last cell
-            # x, y = cells[0] # first cell
-            # x, y = cells[rand.randrange(len(cells))]  # random cell
-            # x, y = cells[len(cells)//2] # middle cell
+            if (type == 'l'):
+                x, y = cells[-1]  # last cell
+            elif (type == 'f'):
+                x, y = cells[0]  # first cell
+            elif (type == 'm'):
+                x, y = cells[len(cells) // 2]  # middle cell
+            else:
+                x, y = cells[rand.randrange(len(cells))]  # random cell
+
             pos_moves = self.find_moves(x, y)
-            # print(cells[-1])
-            # print(pos_moves)
             if pos_moves:
                 xi, yi = rand.choice(pos_moves)
                 self.cells[yi][xi] = CORRIDOR
