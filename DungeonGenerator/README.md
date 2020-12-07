@@ -1,3 +1,11 @@
+## Table of contents
+* [General Information](#general-information)
+* [Technologies](#technologies)
+* [Setup](#setup)
+* [Features](#features)
+* [To Do](#to-do)
+* [Sources](#sources)
+
 ## General Information
 This project is intended to serve as a robust and customizable room generator
 for use in semi-random map creation. The simplest use case is for quick
@@ -26,7 +34,6 @@ At this point the user can import DungeonGenerator.py and begin using it in thei
   * More varied room generation (cellular automata?)
   * Prune dead end corridors
 
-
 ## Sources
-http://journal.stuffwithstuff.com/2014/12/21/rooms-and-mazes/
+http://journal.stuffwithstuff.com/2014/12/21/rooms-and-mazes/  
 http://weblog.jamisbuck.org/2011/1/27/maze-generation-growing-tree-algorithm
