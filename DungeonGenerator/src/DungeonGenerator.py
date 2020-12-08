@@ -42,6 +42,9 @@ class DungeonGenerator:
         self.cells = [[BLANK for _ in range(width)] for _ in range(height)]
         self.rooms = []
         self.corridors = []
+        self.doors = []
+        self.regions = {}
+        self.region_num = 0
 
     def __iter__(self):
         for y in range(self.height):
@@ -51,7 +54,7 @@ class DungeonGenerator:
     def can_carve(self, x, y, xi, yi):
         """
         takes a starting cell and a direction of movement and returns True if the
-        surrounding tiles are all BLANK
+        surrounding tiles are all BLANK.
 
         Args:
             x: integer, starting x coord
@@ -73,7 +76,7 @@ class DungeonGenerator:
 
     def find_neighbors(self, x, y):
         """
-        returns the locations of the cells directly adjacent to the given coordinates
+        returns the locations of the cells directly adjacent to the given coordinates.
 
         Args:
             x: integer, starting x coord
@@ -93,8 +96,7 @@ class DungeonGenerator:
 
     def find_moves(self, x, y):
         """
-        determines whether the directly adjacent cells are valid
-        corridor cells
+        determines whether the directly adjacent cells are valid corridor cells.
 
         Args:
             x: integer, starting x coord
@@ -117,7 +119,7 @@ class DungeonGenerator:
     def valid_room(self, xi, yi, xj, yj, valid_dist):
         """
         return True if the given rectangle overlaps entirely with EMPTY tiles and
-        does not exceed the dungeon's height/width
+        does not exceed the dungeon's height/width.
 
         Args:
             xi, yi: integer, lower left rectangle position
@@ -143,10 +145,11 @@ class DungeonGenerator:
     def place_rooms_rand(self, min_size, max_size, attempts, step=1, valid_dist=1):
         """
         randomly places rooms with a brute force method, trying attempt times with
-        rooms of random sizes between min and max. Fills self.rooms
+        rooms of random sizes between min and max. Populates self.rooms.
 
         Args:
-            min_size, max_size: integer, minimum/maximum height/width
+            min_size: integer, minimum height/width
+            max_size: integer, maximum height/width
             attempts: integer, number of placements tried
             step: integer, how the room size scales
             valid_dist: integer, distance rooms must be from non-EMPTY cells to be valid
@@ -161,20 +164,22 @@ class DungeonGenerator:
             room_width = rand.randrange(min_size, max_size, step)
             room_height = rand.randrange(min_size, max_size, step)
             if self.valid_room(start_x, start_y, start_x + room_width, start_y + room_height, valid_dist):
+                self.region_num += 1
                 for y in range(room_height):
                     for x in range(room_width):
                         self.cells[start_y + y][start_x + x] = FLOOR
+                        self.regions[(start_x + x, start_y + y)] = self.region_num
                 self.rooms.append(Room(start_x, start_y, room_width, room_height))
 
     def place_corridors(self, x=None, y=None, gen='l'):
         """
-        generates a maze through unoccupied tiles using a growing tree algorithm
+        generates a maze through unoccupied tiles using a growing tree algorithm.
 
         Args:
             x: integer, starting x coord. None picks random EMPTY cell
             y: integer, starting y coord. None picks random EMPTY cell
             gen: string, which cell to pick when selecting how to grow the maze
-                ('f' = first, 'l' = last, 'm' = middle, 'r' = random,)
+                ('f' = first, 'l' = last, 'm' = middle, 'r' = random)
 
         Returns:
             None
@@ -189,6 +194,7 @@ class DungeonGenerator:
                 y = rand.randrange(self.height)
 
         self.cells[y][x] = CORRIDOR
+        self.regions[(x, y)] = 0
         cells.append((x, y))
 
         while cells:
@@ -205,7 +211,94 @@ class DungeonGenerator:
             if pos_moves:
                 xi, yi = rand.choice(pos_moves)
                 self.cells[yi][xi] = CORRIDOR
+                self.regions[(xi, yi)] = 0
                 self.corridors.append((xi, yi))
                 cells.append((xi, yi))
             else:
                 cells.remove((x, y))
+
+    def find_connectors(self):
+        """
+        iterates through the dungeon finding any EMPTY cells which lie between two different regions and mapping the
+        (x,y) coords to the regions they (potentially) will connect to.
+
+        Returns:
+            dictionary which maps (x,y) tuples to set<int> of region numbers
+        """
+
+        connectors = {}
+
+        for y in range(self.height):
+            for x in range(self.width):
+                if self.cells[y][x] == BLANK:
+                    connecting_regions = set()
+                    neighbors = self.find_neighbors(x, y)
+                    for n in neighbors:
+                        region = self.regions.get(n)
+                        if region is not None:
+                            connecting_regions.add(region)
+                    if len(connecting_regions) == 2:
+                        connectors[(x, y)] = connecting_regions
+
+        return connectors
+
+    def make_doorways(self, connectors, chance=0):
+        """
+        picks a connector at random and makes the given coords a DOOR cell. The connected regions are merged into a
+        single region using the dictionary merged_regions. Connectors that connect only to merged regions are found
+        and pruned/made into doorways at random based on the value of chance. Populates self.doors.
+
+        Args:
+            connectors: dictionary with coord-adjacent region key-value pairs
+            chance: odds of additional connectors being added when pruning. higher = less likely. 0 for no additions
+
+        Returns:
+            None
+        """
+
+        unmerged_regions = set()
+        merged_regions = {}
+        for i in range(self.region_num+1):
+            unmerged_regions.add(i)
+            merged_regions[i] = i
+
+        # connect regions until all connected
+        while len(unmerged_regions) > 1:
+            coords, regions = rand.choice(list(connectors.items()))
+            self.cells[coords[1]][coords[0]] = DOOR
+            self.doors.append(coords)
+
+            # merge regions
+            connected_regions = [merged_regions[region] for region in regions]
+            dest = connected_regions[0]
+            sources = set(connected_regions[1:])
+
+            for i in range(self.region_num):
+                if merged_regions[i] in sources:
+                    merged_regions[i] = dest
+
+            # remove sources from unmerged_regions
+            unmerged_regions.difference_update(sources)
+
+            # find unneeded connectors
+            delete_list = []
+            for coords, regions in connectors.items():
+                unique_regions = set()
+                for region in regions:
+                    unique_regions.add(merged_regions[region])
+                if len(unique_regions) == 1:
+                    delete_list.append(coords)
+
+            # delete unneeded connectors
+            for coord in delete_list:
+                if chance != 0 and rand.randrange(chance) == 0:
+                    self.cells[coord[1]][coord[0]] = DOOR
+                    self.doors.append(coord)
+                del connectors[coord]
+
+        # # naive approach, leads to every region connecting to all adjacent regions.
+        # while len(connectors):
+        #     coords, regions = rand.choice(list(connectors.items()))
+        #     self.cells[coords[1]][coords[0]] = DOOR
+        #     connectors = {key: val for key, val in connectors.items() if val != regions}
+
