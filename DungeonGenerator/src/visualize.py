@@ -46,14 +46,21 @@ def make_image(array, name):
 
 # example usage
 if __name__ == "__main__":
-    dungeon = DunGen.DungeonGenerator(50, 50)
-    dungeon.place_rooms_rand(3, 30, 500, 2, 1)
+    width = 50
+    height = 50
+    dungeon = DunGen.DungeonGenerator(width, height)
+    dungeon.place_rooms_rand(3, 10, 200, 2, 1)
     print("rooms placed")
-    dungeon.place_corridors(gen='r')
+    dungeon.place_corridors(gen='f')
     print("corridors placed")
+    for y in range(height):
+        for x in range(width):
+            if dungeon.valid_room(x, y, x, y, 1):
+                dungeon.place_corridors(x, y, gen='f')
+    print("extra corridors placed")
     connectors = dungeon.find_connectors()
     print("connectors found")
-    dungeon.make_doorways(connectors, 25)
+    dungeon.make_doorways(connectors, 0)
     print("doorways placed")
     make_image(map_to_pixel(np.array(dungeon.cells)).astype(np.uint8), "../images/prunepre.png")
     while dungeon.prune_deadends():
