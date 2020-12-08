@@ -31,7 +31,9 @@ def map_to_pixel(dun_cells):
 if __name__ == "__main__":
     dungeon = DunGen.DungeonGenerator(50, 50)
     dungeon.place_rooms_rand(3, 15, 100, 2, 1)
-    dungeon.place_corridors(type='f')
+    dungeon.place_corridors(gen='r')
+    connectors = dungeon.find_connectors()
+    dungeon.make_doorways(connectors, 0)
     dun_image = map_to_pixel(np.array(dungeon.cells)).astype(np.uint8)
     img = Image.fromarray(dun_image)
     img = img.resize((img.width * TILESIZE, img.height * TILESIZE), resample=Image.BOX)
