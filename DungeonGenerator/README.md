@@ -7,7 +7,7 @@
 
 ## General Information
 This project is intended to serve as a robust and customizable room generator
-for use in semi-random map creation. The simplest use case is for quick
+for use in semi-random dungeon creation. The simplest use case is for quick
 creation of dungeon maps in a roleplaying game such as D&D, though it is
 possible to tie the code into a game as a level generator.
 
@@ -27,11 +27,11 @@ At this point the user can import DungeonGenerator.py and begin using it in thei
 ## Features
   * Generate rooms of variable size/distance from each other
   * Create maze around rooms
-
-#### To Do
-  * Connect rooms to corridors
-  * More varied room generation (cellular automata?)
+  * Connect rooms to maze/each other
   * Prune dead end corridors
+
+  #### To Do
+  * More varied room generation (cellular automata?)
 
 ## Sources
 http://journal.stuffwithstuff.com/2014/12/21/rooms-and-mazes/  
