@@ -44,7 +44,7 @@ class DungeonGenerator:
         self.corridors = []
         self.doors = []
         self.regions = {}
-        self.region_num = 0
+        self.region_num = -1
 
     def __iter__(self):
         for y in range(self.height):
@@ -124,7 +124,7 @@ class DungeonGenerator:
         Args:
             xi, yi: integer, lower left rectangle position
             xj, yj: integer, upper right rectangle position
-            valid_dist: distance rooms must be from non-EMPTY cells to be valid
+            valid_dist: integer, distance rooms must be from non-EMPTY cells to be valid
 
         Returns:
             True if only overlapping EMPTY cells
@@ -135,8 +135,8 @@ class DungeonGenerator:
         xj += valid_dist
         yj += valid_dist
         if xi >= 0 and yi >= 0 and xj < self.width and yj < self.height:
-            for x in range(xj - xi):
-                for y in range(yj - yi):
+            for x in range(1 + xj - xi):
+                for y in range(1 + yj - yi):
                     if self.cells[yi + y][xi + x]:
                         return False
             return True
@@ -194,7 +194,9 @@ class DungeonGenerator:
                 y = rand.randrange(1, self.height - 2)
 
         self.cells[y][x] = CORRIDOR
-        self.regions[(x, y)] = 0
+        self.corridors.append((x, y))
+        self.region_num += 1
+        self.regions[(x, y)] = self.region_num
         cells.append((x, y))
 
         while cells:
@@ -211,7 +213,7 @@ class DungeonGenerator:
             if pos_moves:
                 xi, yi = rand.choice(pos_moves)
                 self.cells[yi][xi] = CORRIDOR
-                self.regions[(xi, yi)] = 0
+                self.regions[(xi, yi)] = self.region_num
                 self.corridors.append((xi, yi))
                 cells.append((xi, yi))
             else:
@@ -258,12 +260,13 @@ class DungeonGenerator:
 
         unmerged_regions = set()
         merged_regions = {}
-        for i in range(self.region_num+1):
+        for i in range(self.region_num + 1):
             unmerged_regions.add(i)
             merged_regions[i] = i
 
         # connect regions until all connected
         while len(unmerged_regions) > 1:
+            print(len(unmerged_regions))
             coords, regions = rand.choice(list(connectors.items()))
             self.cells[coords[1]][coords[0]] = DOOR
             self.doors.append(coords)
@@ -273,7 +276,7 @@ class DungeonGenerator:
             dest = connected_regions[0]
             sources = set(connected_regions[1:])
 
-            for i in range(self.region_num):
+            for i in range(self.region_num + 1):
                 if merged_regions[i] in sources:
                     merged_regions[i] = dest
 
@@ -313,12 +316,16 @@ class DungeonGenerator:
         """
 
         deadend_found = False
+        delete_list = []
 
         for x, y in self.corridors:
             neighbors = self.find_neighbors(x, y)
-            if sum(1 for neighbor in neighbors if self.cells[neighbor[1]][neighbor[0]] > 0) == 1:
+            if sum(1 for neighbor in neighbors if self.cells[neighbor[1]][neighbor[0]] > 0) <= 1:
                 self.cells[y][x] = BLANK
-                self.corridors.remove((x, y))
+                delete_list.append((x, y))
                 deadend_found = True
+
+        for coord in delete_list:
+            self.corridors.remove(coord)
 
         return deadend_found
