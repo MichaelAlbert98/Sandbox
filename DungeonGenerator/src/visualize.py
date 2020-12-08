@@ -27,14 +27,36 @@ def map_to_pixel(dun_cells):
     return pixels
 
 
+def make_image(array, name):
+    """
+    turns a 3d array into an iamge and saves it with the given name
+
+    Args:
+        array: array, 3d array of dimensions [width][height][3]
+        name: string, name to save the image as
+
+    Returns:
+        None
+    """
+
+    img = Image.fromarray(array)
+    img = img.resize((img.width * TILESIZE, img.height * TILESIZE), resample=Image.BOX)
+    img.save(name)
+
+
 # example usage
 if __name__ == "__main__":
     dungeon = DunGen.DungeonGenerator(50, 50)
-    dungeon.place_rooms_rand(3, 15, 100, 2, 1)
+    dungeon.place_rooms_rand(3, 30, 500, 2, 1)
+    print("rooms placed")
     dungeon.place_corridors(gen='r')
+    print("corridors placed")
     connectors = dungeon.find_connectors()
-    dungeon.make_doorways(connectors, 0)
-    dun_image = map_to_pixel(np.array(dungeon.cells)).astype(np.uint8)
-    img = Image.fromarray(dun_image)
-    img = img.resize((img.width * TILESIZE, img.height * TILESIZE), resample=Image.BOX)
-    img.save("../images/test.png")
+    print("connectors found")
+    dungeon.make_doorways(connectors, 25)
+    print("doorways placed")
+    make_image(map_to_pixel(np.array(dungeon.cells)).astype(np.uint8), "../images/prunepre.png")
+    while dungeon.prune_deadends():
+        pass
+    print("deadends pruned")
+    make_image(map_to_pixel(np.array(dungeon.cells)).astype(np.uint8), "../images/prunepost.png")
