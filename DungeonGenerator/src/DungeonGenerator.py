@@ -190,8 +190,8 @@ class DungeonGenerator:
             x = rand.randrange(1, self.width - 2)
             y = rand.randrange(1, self.height - 2)
             while not self.can_carve(x, y, 0, 0):
-                x = rand.randrange(self.width)
-                y = rand.randrange(self.height)
+                x = rand.randrange(1, self.width - 2)
+                y = rand.randrange(1, self.height - 2)
 
         self.cells[y][x] = CORRIDOR
         self.regions[(x, y)] = 0
@@ -302,3 +302,23 @@ class DungeonGenerator:
         #     self.cells[coords[1]][coords[0]] = DOOR
         #     connectors = {key: val for key, val in connectors.items() if val != regions}
 
+    def prune_deadends(self):
+        """
+        repeatedly iterates over the list of CORRIDOR cells, turning them into BLANK cells if they are a deadend. A
+        deadend is considered to be a CORRIDOR tile with only 1 non-BLANK cell surounding it. Calling this until it
+        returns False will remove all CORRIDOR cells not needed to connect all the regions to one another.
+
+        Returns:
+            False if no deadends are found
+        """
+
+        deadend_found = False
+
+        for x, y in self.corridors:
+            neighbors = self.find_neighbors(x, y)
+            if sum(1 for neighbor in neighbors if self.cells[neighbor[1]][neighbor[0]] > 0) == 1:
+                self.cells[y][x] = BLANK
+                self.corridors.remove((x, y))
+                deadend_found = True
+
+        return deadend_found
