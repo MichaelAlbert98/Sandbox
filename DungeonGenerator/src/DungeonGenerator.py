@@ -266,7 +266,6 @@ class DungeonGenerator:
 
         # connect regions until all connected
         while len(unmerged_regions) > 1:
-            print(len(unmerged_regions))
             coords, regions = rand.choice(list(connectors.items()))
             self.cells[coords[1]][coords[0]] = DOOR
             self.doors.append(coords)
