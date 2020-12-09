@@ -51,12 +51,12 @@ if __name__ == "__main__":
     dungeon = DunGen.DungeonGenerator(width, height)
     dungeon.place_rooms_rand(3, 10, 200, 2, 1)
     print("rooms placed")
-    dungeon.place_corridors(gen='f')
+    dungeon.place_corridors(gen='l', curviness=0)
     print("corridors placed")
     for y in range(height):
         for x in range(width):
             if dungeon.valid_room(x, y, x, y, 1):
-                dungeon.place_corridors(x, y, gen='f')
+                dungeon.place_corridors(x, y, gen='l', curviness=0)
     print("extra corridors placed")
     connectors = dungeon.find_connectors()
     print("connectors found")
