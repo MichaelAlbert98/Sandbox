@@ -171,7 +171,7 @@ class DungeonGenerator:
                         self.regions[(start_x + x, start_y + y)] = self.region_num
                 self.rooms.append(Room(start_x, start_y, room_width, room_height))
 
-    def place_corridors(self, x=None, y=None, gen='l'):
+    def place_corridors(self, x=None, y=None, gen='l', curviness=100):
         """
         generates a maze through unoccupied tiles using a growing tree algorithm.
 
@@ -180,12 +180,17 @@ class DungeonGenerator:
             y: integer, starting y coord. None picks random EMPTY cell
             gen: string, which cell to pick when selecting how to grow the maze
                 ('f' = first, 'l' = last, 'm' = middle, 'r' = random)
+            curviness: integer, value from 0-100 indicating how much curvature should be in the maze. 0 indicates a
+            maze generated always taking the previous direction if possible while 100 picks a possible direction randomly
 
         Returns:
             None
         """
 
         cells = []
+        last_x = 0
+        last_y = 0
+
         if x is None and y is None:
             x = rand.randrange(1, self.width - 2)
             y = rand.randrange(1, self.height - 2)
@@ -211,11 +216,21 @@ class DungeonGenerator:
 
             pos_moves = self.find_moves(x, y)
             if pos_moves:
-                xi, yi = rand.choice(pos_moves)
-                self.cells[yi][xi] = CORRIDOR
-                self.regions[(xi, yi)] = self.region_num
-                self.corridors.append((xi, yi))
-                cells.append((xi, yi))
+                move_x = 0
+                move_y = 0
+                if rand.randrange(100) >= curviness and (x+last_x, y+last_y) in pos_moves:
+                    move_x = last_x
+                    move_y = last_y
+                else:
+                    xi, yi = rand.choice(pos_moves)
+                    move_x = xi-x
+                    move_y = yi-y
+                self.cells[y+move_y][x+move_x] = CORRIDOR
+                self.regions[(x+move_x, y+move_y)] = self.region_num
+                self.corridors.append((x+move_x, y+move_y))
+                cells.append((x+move_x, y+move_y))
+                last_x = move_x
+                last_y = move_y
             else:
                 cells.remove((x, y))
 
